@@ -1,0 +1,54 @@
+import numpy as np
+from sklearn.svm import SVR
+from sklearn.model_selection import GridSearchCV
+import matplotlib.pyplot as plt
+import math
+
+X0 = np.sort(5 * np.random.rand(40, 1), axis=0) #np.linspace(-math.pi, math.pi, 201)
+X1 = np.sort(5 * np.random.rand(40, 1), axis=0) #np.linspace(-math.pi, math.pi, 201)
+y0 = np.sin(X0).ravel()
+y1 = np.sin(X1).ravel()
+
+gamma = 0.1
+C = 1e3
+delta = 0.001
+iterations = 0
+scores = np.zeros(5)
+
+while True:
+    iterations += 1
+    neighbours = [SVR(C=C, gamma=gamma), SVR(C=C+delta, gamma=gamma+delta), SVR(C=C+delta, gamma=gamma-delta), SVR(C=C-delta, gamma=gamma-delta), SVR(C=C-delta, gamma=gamma+delta)]
+    for svr in neighbours:
+        svr.fit(X0, y0)
+    for i in range(0, 5):
+        scores[i] = neighbours[i].score(X1, y1)
+    if scores.argmax() == 0:
+        break
+    elif scores.argmax() == 1:
+        gamma += delta
+        C += delta
+    elif scores.argmax() == 2:
+        gamma -= delta
+        C += delta
+    elif scores.argmax() == 3:
+        gamma -= delta
+        C -= delta
+    elif scores.argmax() == 4:
+        gamma += delta
+        C -= delta
+    else:
+        print("Error")
+        break
+
+svr = SVR(C=C, gamma=gamma)
+f = svr.fit(X0, y0).predict(X1)
+
+print("After {0} iterations found optimum values C = {2} and gamma = {1} with a score = {3}".format(iterations, C, gamma, svr.score(X1, y1)))
+print(svr.get_params)
+
+lw = 2
+plt.scatter(X1, y1, color='darkorange', label='Dados')
+plt.hold('on')
+plt.plot(X1, f, color='navy', lw=lw, label='Aproximacao')
+plt.legend()
+plt.show()
