@@ -6,6 +6,7 @@ import numpy as np
 from sys import argv
 from datetime import datetime
 from math import sqrt
+from sklearn import preprocessing
 from sklearn.svm import SVR
 from sklearn.metrics import mean_squared_error
 
@@ -27,6 +28,7 @@ class SVM(object):
     def calculate_fitness(self, data):
         """Calculate the fitness of the solution"""
         if self.fit == -1:
+            self.svm.set_params(C=self.c, gamma=self.gamma)
             self.svm.fit(data[0], data[1])
             predicted = self.svm.predict(data[2])
             self.fit = sqrt(mean_squared_error(data[3], predicted))
@@ -36,7 +38,7 @@ class SVM(object):
 
 class GA(object):
 
-    def __init__(self, mt_rate, cx_rate, elt_rate, pop_size, max_gen, data):
+    def __init__(self, mt_rate, cx_rate, elt_rate, pop_size, max_gen, data, params_lb, params_ub):
         self.mt_rate = mt_rate
         self.cx_rate = cx_rate
         self.elt_rate = elt_rate
@@ -44,11 +46,13 @@ class GA(object):
         self.max_gen = max_gen
         self.pop = []
         self.data = data
+        self.params_lb = params_lb
+        self.params_ub = params_ub
 
     def random_ind(self):
         """Create a random individual"""
-        c = random.uniform(0, 1)
-        gamma = random.uniform(0, 1)
+        c = random.uniform(self.params_lb[0], self.params_ub[0])
+        gamma = random.uniform(self.params_lb[1], self.params_ub[1])
         return SVM(c,gamma)
 
     def start_population(self):
@@ -63,22 +67,30 @@ class GA(object):
             k = random.randint(0,1)
             r = random.uniform(0,1)
             if (k == 0):
-                ind.c = ind.c*r
+                ind.c = self.params_lb[0] + r*(self.params_ub[0] - self.params_lb[0] )
             else:
-                ind.gamma = ind.gamma*r
+                ind.gamma = self.params_lb[1] + r*(self.params_ub[1] - self.params_lb[1] )
             ind.set_params()
 
     def crossover(self,ind1,ind2):
         """crossover operator. Trade lines between individuals"""
+        sigma = random.uniform(0.000001,0.000009)
         new_ind1 = copy.deepcopy(ind1)
         new_ind1.fit = -1
         new_ind2 = copy.deepcopy(ind2)
         new_ind2.fit = -1
         if probabilty(self.cx_rate):
-            aux = new_ind1.gamma
-            new_ind1.gamma = new_ind2.gamma
-            new_ind2.gamma = aux
-            new_ind1.set_params()
+            r = random.uniform(0,1)
+            if(r == 0):
+                new_ind1.c = ind1.c + sigma*(ind1.c - ind2.c)
+                new_ind1.gamma = ind1.gamma + sigma*(ind1.gamma - ind2.gamma)
+                new_ind2.c = ind2.c - sigma*(ind1.c - ind2.c)
+                new_ind2.gamma = ind2.gamma - sigma*(ind1.gamma - ind2.gamma)
+            else:
+                new_ind1.c = ind1.c + sigma*(ind2.c - ind1.c)
+                new_ind1.gamma = ind1.gamma + sigma*(ind2.gamma - ind1.gamma)
+                new_ind2.c = ind2.c - sigma*(ind2.c - ind1.c)
+                new_ind2.gamma = ind2.gamma - sigma*(ind2.gamma - ind1.gamma)
         return new_ind1, new_ind2
 
     def roulette_selection(self):
@@ -131,6 +143,9 @@ class GA(object):
             self.pop = self.pop + new_population
             gen +=1
 
+        self.pop.sort(key = lambda ind: ind.fit)
+        return self.pop[0]
+
 def probabilty(prob):
     "Given a probabilty determines if the event is going to happen or not"
     r = random.random()
@@ -138,9 +153,11 @@ def probabilty(prob):
 
 def readCSV():
     "Read dataset from CSV file"
-    data = np.loadtxt('data3.csv', dtype=float, delimiter=',', skiprows=1)
-    np.random.shuffle(data)
-    training_size = math.floor(data.shape[0]*0.9)
+    data = np.loadtxt('data5.csv', dtype=float, delimiter=',', skiprows=1)
+    scaler = preprocessing.StandardScaler()
+    data = scaler.fit_transform(data)
+    #np.random.shuffle(data)
+    training_size = math.ceil(data.shape[0]*0.8)
     training = data[:training_size,:]
     test = data[training_size:,:]
     training_x = training[:, 1:]
@@ -151,17 +168,22 @@ def readCSV():
     return training_x, training_y, test_x, test_y
 
 def main():
-    random.seed(10)
+    random.seed(datetime.now())
 
     data = readCSV();
-    mt_rate = 0.5
+    mt_rate = 0.3
     cx_rate = 0.9
     elt_rate = 0.1
     pop_size = 100
     max_gen = 500
+    params_lb = [0,0]
+    params_ub = [1000,10]
 
-    ga = GA(mt_rate, cx_rate, elt_rate, pop_size, max_gen, data)
-    ga.start()
+    ga = GA(mt_rate, cx_rate, elt_rate, pop_size, max_gen, data, params_lb, params_ub)
+    best_ind = ga.start()
+    print "BEST SVM: (C, GAMMA, RMSE)"
+    print best_ind.c, best_ind.gamma, best_ind.fit
+
     return 0
 
 if __name__ == "__main__":
