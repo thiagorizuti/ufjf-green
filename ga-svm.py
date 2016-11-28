@@ -9,6 +9,7 @@ from math import sqrt
 from sklearn import preprocessing
 from sklearn.svm import SVR
 from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import KFold
 
 
 class SVM(object):
@@ -151,29 +152,33 @@ def probabilty(prob):
     r = random.random()
     return  r <= prob
 
-def readCSV():
+def readCSV(file_name):
     "Read dataset from CSV file"
-    data = np.loadtxt('data5.csv', dtype=float, delimiter=',', skiprows=1)
+    data = np.loadtxt(file_name, dtype=float, delimiter=',', skiprows=1)
     scaler = preprocessing.StandardScaler()
     data = scaler.fit_transform(data)
-    #np.random.shuffle(data)
+    np.random.shuffle(data)
+    return data[:,1:], data[:,0]    
+      
+def train_test(data_x, data_y):
     training_size = math.ceil(data.shape[0]*0.8)
-    training = data[:training_size,:]
-    test = data[training_size:,:]
-    training_x = training[:, 1:]
-    training_y = training[:, 0]
-    test_x = test[:, 1:]
-    test_y = test[:, 0]
+    training_x = data_x[:training_size,:]
+    training_y = data_y[:training_size]
+    
+    test_x = test[training_size:,:]
+    test_y = test[training_size:]
 
     return training_x, training_y, test_x, test_y
 
 def main():
     random.seed(datetime.now())
+    
+    dataset = readCSV('data5.csv');
+    data = train_test(dataset[0],dataset[1])
 
-    data = readCSV();
-    mt_rate = 0.3
-    cx_rate = 0.9
-    elt_rate = 0.1
+    mt_rate = argv[1]
+    cx_rate = argv[2]
+    elt_rate = 0.01
     pop_size = 100
     max_gen = 500
     params_lb = [0,0]
@@ -181,10 +186,30 @@ def main():
 
     ga = GA(mt_rate, cx_rate, elt_rate, pop_size, max_gen, data, params_lb, params_ub)
     best_ind = ga.start()
-    print "BEST SVM: (C, GAMMA, RMSE)"
-    print best_ind.c, best_ind.gamma, best_ind.fit
+
+    best_c = best_ind.c 
+    best_gamma = best_ind.gamma
+    best_svm = SVR(C=best_c, gamma=best_gamma)
+   
+    X, y = readCSV('data6.csv')
+    kf = KFold(n_splits=5, shuffle=True)
+    rmse = 0
+    count = 0
+    for train_index, test_index in kf.split(X):
+        X_train, X_test = X[train_index], X[test_index]
+        y_train, y_test = y[train_index], y[test_index]    
+        best_svm.fit(X_train, y_train)
+        predicted = best_svm.predict(X_test)
+        rmse += sqrt(mean_squared_error(y_test, predicted))
+        count += 1
+    
+    print rmse/count
 
     return 0
+
+
+            
+
 
 if __name__ == "__main__":
     main()
