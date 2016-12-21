@@ -122,9 +122,16 @@ class GA(object):
         self.start_population()
         self.calculate_population_fitness()
         gen = 1
+        best_fit = 99999
+        best_count = 1
         while gen < self.max_gen:
             new_population = []
             self.pop.sort(key = lambda ind: ind.fit)
+            if self.pop[0].fit < best_fit:
+                best_fit = self.pop[0].fit
+                best_count = gen
+            if(gen - best_count) > 100:
+                break
             print "Generation: ", gen, " Fittest: ", self.pop[0]
             while len(new_population) < self.pop_size:
                 for ind in self.pop:
@@ -156,29 +163,29 @@ def readCSV(file_name):
     "Read dataset from CSV file"
     data = np.loadtxt(file_name, dtype=float, delimiter=',', skiprows=1)
     scaler = preprocessing.StandardScaler()
-    data = scaler.fit_transform(data)
+    #data = scaler.fit_transform(data)
     np.random.shuffle(data)
-    return data[:,1:], data[:,0]    
-      
+    return data[:,1:], data[:,0]
+
 def train_test(data_x, data_y):
-    training_size = math.ceil(data.shape[0]*0.8)
+    training_size = math.ceil(data_x.shape[0]*0.8)
     training_x = data_x[:training_size,:]
     training_y = data_y[:training_size]
-    
-    test_x = test[training_size:,:]
-    test_y = test[training_size:]
+
+    test_x = data_x[training_size:,:]
+    test_y = data_y[training_size:]
 
     return training_x, training_y, test_x, test_y
 
 def main():
     random.seed(datetime.now())
-    
+
     dataset = readCSV('data5.csv');
     data = train_test(dataset[0],dataset[1])
 
     mt_rate = argv[1]
     cx_rate = argv[2]
-    elt_rate = 0.01
+    elt_rate = 0.2
     pop_size = 100
     max_gen = 500
     params_lb = [0,0]
@@ -187,28 +194,30 @@ def main():
     ga = GA(mt_rate, cx_rate, elt_rate, pop_size, max_gen, data, params_lb, params_ub)
     best_ind = ga.start()
 
-    best_c = best_ind.c 
+    best_c = best_ind.c
     best_gamma = best_ind.gamma
     best_svm = SVR(C=best_c, gamma=best_gamma)
-   
+
     X, y = readCSV('data6.csv')
+    y_sort = np.sort(y)
+
     kf = KFold(n_splits=5, shuffle=True)
     rmse = 0
     count = 0
     for train_index, test_index in kf.split(X):
         X_train, X_test = X[train_index], X[test_index]
-        y_train, y_test = y[train_index], y[test_index]    
+        y_train, y_test = y[train_index], y[test_index]
         best_svm.fit(X_train, y_train)
         predicted = best_svm.predict(X_test)
         rmse += sqrt(mean_squared_error(y_test, predicted))
         count += 1
-    
-    print rmse/count
+
+    print rmse/count, (rmse/count)/(y_sort[-1] - y_sort[0])
 
     return 0
 
 
-            
+
 
 
 if __name__ == "__main__":
