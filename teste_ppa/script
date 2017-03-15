@@ -1,0 +1,12 @@
+#$ -S /bin/bash
+
+for alg in `seq 0 9` ; do
+    python ../ga-svm.py $alg 1 0.1  0.01   0.8 > 1.2.8.$alg &
+    python ../ga-svm.py $alg 1 0.1  0.001  0.8 > 1.3.8.$alg &
+    python ../ga-svm.py $alg 1 0.01 0.0001 0.8 > 2.4.8.$alg &
+    python ../ga-svm.py $alg 1 0.1  0.0001 0.8 > 1.4.8.$alg &
+    python ../ga-svm.py $alg 1 0.1  0.01   0.2 > 1.2.2.$alg &
+    python ../ga-svm.py $alg 1 0.1  0.001  0.2 > 1.3.2.$alg &
+    python ../ga-svm.py $alg 1 0.01 0.0001 0.2 > 2.4.2.$alg &
+    python ../ga-svm.py $alg 1 0.1  0.0001 0.2 > 1.4.2.$alg;
+done
